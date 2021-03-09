@@ -1,4 +1,4 @@
-<?php 
+<?php
 class WC_Settings_Mobile_Config
 {
 
@@ -99,7 +99,8 @@ WC_Settings_Mobile_Config::init();
 /* --------------------------------------------------------------
 /* CODE TO ADDING A NEW ENDPOINT INSIDE REST API
 -------------------------------------------------------------- */
-class WC_REST_Custom_Controller {
+class WC_REST_Custom_Controller
+{
 	/**
 	 * You can extend this class with
 	 * WP_REST_Controller / WC_REST_Controller / WC_REST_Products_V2_Controller / WC_REST_CRUD_Controller etc.
@@ -109,113 +110,150 @@ class WC_REST_Custom_Controller {
 
 	protected $rest_base = 'mobile_config';
 
-	public function get_mobile_config( \WP_REST_Request $data ) {
+	public function get_mobile_config(\WP_REST_Request $data)
+	{
 		global $wpdb;
-		
+
 		$logger = wc_get_logger();
-		
+
 		foreach (getallheaders() as $name => $value) {
 			$logger->info($name . ' ' . $value);
 			if ($name == 'Authorization') {
 				$auth = $value;
 			}
 		}
-				
+
 		$auth_explode = explode(' ', $auth);
 		$consumer_key = base64_decode($auth_explode[1]);
-		
-		$consumer_explode_key = explode(':', $consumer_key);
-			
-		$consumer_key = wc_api_hash( sanitize_text_field( $consumer_explode_key[0] ) );
 
-		$keys = $wpdb->get_row( $wpdb->prepare( "
+		$consumer_explode_key = explode(':', $consumer_key);
+
+		
+
+		$consumer_key = wc_api_hash(sanitize_text_field($consumer_explode_key[0]));
+
+		$keys = $wpdb->get_row($wpdb->prepare("
 			SELECT key_id, user_id, permissions, consumer_key, consumer_secret, nonces
 			FROM {$wpdb->prefix}woocommerce_api_keys
 			WHERE consumer_key = '%s'
-		", $consumer_key ), ARRAY_A );
+		", $consumer_key), ARRAY_A);
 
-		if ( empty( $keys ) ) {
+		if (empty($keys)) {
 			$error_handler = (object) array(
-			   'code' => 'woocommerce_rest_cannot_view',
-			   'message' => 'Sorry, you cannot list resources.',
-			   'data' => 
-			  (object) array(
-				 'status' => 401,
-			  ),
+				'code' => 'woocommerce_rest_cannot_view',
+				'message' => 'Sorry, you cannot list resources.',
+				'data' =>
+				(object) array(
+					'status' => 401,
+				),
 			);
 			echo json_encode($error_handler);
 		} else {
 			$json_config = get_option('wc_settings_mobile_config_json');
-			echo $json_config;	
+			echo $json_config;
 		}
 	}
-	
-	public function get_gallery_images( \WP_REST_Request $data ) {
+
+	public function get_gallery_images(\WP_REST_Request $data)
+	{
 		global $wpdb;
-		
 		$logger = wc_get_logger();
-				
+
 		foreach (getallheaders() as $name => $value) {
 			$logger->info($name . ' ' . $value);
 			if ($name == 'Authorization') {
 				$auth = $value;
 			}
 		}
-		
+
 		$auth_explode = explode(' ', $auth);
 		$consumer_key = base64_decode($auth_explode[1]);
-		
-		$consumer_explode_key = explode(':', $consumer_key);
-			
-		$consumer_key = wc_api_hash( sanitize_text_field( $consumer_explode_key[0] ) );
 
-		$keys = $wpdb->get_row( $wpdb->prepare( "
+		$consumer_explode_key = explode(':', $consumer_key);
+
+		$consumer_key = wc_api_hash(sanitize_text_field($consumer_explode_key[0]));
+
+		$keys = $wpdb->get_row($wpdb->prepare("
 			SELECT key_id, user_id, permissions, consumer_key, consumer_secret, nonces
 			FROM {$wpdb->prefix}woocommerce_api_keys
 			WHERE consumer_key = '%s'
-		", $consumer_key ), ARRAY_A );
+		", $consumer_key), ARRAY_A);
 
-		if ( empty( $keys ) ) {
+		if (empty($keys)) {
 			$error_handler = (object) array(
-			   'code' => 'woocommerce_rest_cannot_view',
-			   'message' => 'Sorry, you cannot list resources.',
-			   'data' => 
-			  (object) array(
-				 'status' => 401,
-			  ),
+				'code' => 'woocommerce_rest_cannot_view',
+				'message' => 'Sorry, you cannot list resources.',
+				'data' =>
+				(object) array(
+					'status' => 401,
+				),
 			);
 			echo json_encode($error_handler);
 		} else {
-			echo 'the Galleryyy';	
+
+			$json_galleries = array();
+
+			$arr_galleries = new WP_Query(array('post_type' => 'gallery', 'posts_per_page' => -1, 'order' => 'DESC', 'orderby' => 'date'));
+			if ($arr_galleries->have_posts()) :
+				while ($arr_galleries->have_posts()) : $arr_galleries->the_post();
+					unset($topic_name);
+					$topic_name = array();
+					$terms = get_the_terms(get_the_ID(), 'topics');
+
+
+					if (!empty($terms)) {
+						foreach ($terms as $item) {
+							$topic_name[] = $item->name;
+						}
+					}
+
+					$json_galleries[] = array(
+						'topic' => join(',', $topic_name),
+						'thumb_nail' => get_the_post_thumbnail_url(get_the_ID(), array('150', '99')),
+						'full_image' =>  get_the_post_thumbnail_url(get_the_ID(), 'full')
+					);
+				endwhile;
+			endif;
+			wp_reset_query();
+
+			$gallery_images = array('gallery_images' => $json_galleries);
+
+			echo json_encode($gallery_images);
 		}
 	}
 
-	public function register_routes() {
+	public function register_routes()
+	{
 		register_rest_route(
 			$this->namespace,
 			'/mobile_config',
 			array(
 				'methods' => 'GET',
-				'callback' => array( $this, 'get_mobile_config' ),
-				'permission_callback' => function() { return ''; }
+				'callback' => array($this, 'get_mobile_config'),
+				'permission_callback' => function () {
+					return '';
+				}
 			)
 		);
-		
+
 		register_rest_route(
 			$this->namespace,
 			'/gallery_images',
 			array(
 				'methods' => 'GET',
-				'callback' => array( $this, 'get_gallery_images' ),
-				'permission_callback' => function() { return ''; }
+				'callback' => array($this, 'get_gallery_images'),
+				'permission_callback' => function () {
+					return '';
+				}
 			)
 		);
 	}
 }
 
-add_filter( 'woocommerce_rest_api_get_rest_namespaces', 'woo_custom_api' );
+add_filter('woocommerce_rest_api_get_rest_namespaces', 'woo_custom_api');
 
-function woo_custom_api( $controllers ) {
+function woo_custom_api($controllers)
+{
 	$controllers['wc/v3']['mobile_config'] = 'WC_REST_Custom_Controller';
 
 	return $controllers;
