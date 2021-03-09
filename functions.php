@@ -401,3 +401,32 @@ require_once('galleries_cpt.php');
 /* CLASS FOR ADDING A JSON CODE INSIDE WOOCOMMERCE
 -------------------------------------------------------------- */
 require_once('json_functions.php');
+
+function get_galleries_by_folders()
+{
+	global $wpdb;
+
+	$json_galleries = array();
+
+	$folders = $wpdb->get_results($wpdb->prepare("
+	SELECT id, name
+	FROM {$wpdb->prefix}fbv
+	WHERE parent = '%s'", 1), ARRAY_A);
+
+	foreach ($folders as $folder) {
+		$ids = $wpdb->get_results($wpdb->prepare("
+		SELECT attachment_id
+		FROM {$wpdb->prefix}fbv_attachment_folder
+		WHERE folder_id = '%s'", $folder['id']), ARRAY_A);
+
+		foreach ($ids as $id) {
+			$json_galleries[] = array(
+				'topic' => $folder['name'],
+				'thumb_nail' => wp_get_attachment_image_url($id['attachment_id'], array('150', '99'), false),
+				'full_image' => wp_get_attachment_image_url($id['attachment_id'], 'full', false)
+			);
+		}
+	}
+
+	return $json_galleries;
+}

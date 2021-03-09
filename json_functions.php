@@ -128,7 +128,7 @@ class WC_REST_Custom_Controller
 
 		$consumer_explode_key = explode(':', $consumer_key);
 
-		
+
 
 		$consumer_key = wc_api_hash(sanitize_text_field($consumer_explode_key[0]));
 
@@ -192,31 +192,10 @@ class WC_REST_Custom_Controller
 		} else {
 
 			$json_galleries = array();
+			
+			$arr_galleries = get_galleries_by_folders();
 
-			$arr_galleries = new WP_Query(array('post_type' => 'gallery', 'posts_per_page' => -1, 'order' => 'DESC', 'orderby' => 'date'));
-			if ($arr_galleries->have_posts()) :
-				while ($arr_galleries->have_posts()) : $arr_galleries->the_post();
-					unset($topic_name);
-					$topic_name = array();
-					$terms = get_the_terms(get_the_ID(), 'topics');
-
-
-					if (!empty($terms)) {
-						foreach ($terms as $item) {
-							$topic_name[] = $item->name;
-						}
-					}
-
-					$json_galleries[] = array(
-						'topic' => join(',', $topic_name),
-						'thumb_nail' => get_the_post_thumbnail_url(get_the_ID(), array('150', '99')),
-						'full_image' =>  get_the_post_thumbnail_url(get_the_ID(), 'full')
-					);
-				endwhile;
-			endif;
-			wp_reset_query();
-
-			$gallery_images = array('gallery_images' => $json_galleries);
+			$gallery_images = array('gallery_images' => $arr_galleries);
 
 			echo json_encode($gallery_images);
 		}
