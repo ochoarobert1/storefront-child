@@ -192,12 +192,102 @@ class WC_REST_Custom_Controller
 		} else {
 
 			$json_galleries = array();
-			
+
 			$arr_galleries = get_galleries_by_folders();
 
 			$gallery_images = array('gallery_images' => $arr_galleries);
 
 			echo json_encode($gallery_images);
+		}
+	}
+
+	public function get_customer_details(\WP_REST_Request $data)
+	{
+		global $wpdb;
+		$logger = wc_get_logger();
+
+		foreach (getallheaders() as $name => $value) {
+			$logger->info($name . ' ' . $value);
+			if ($name == 'Authorization') {
+				$auth = $value;
+			}
+		}
+
+		$auth_explode = explode(' ', $auth);
+		$consumer_key = base64_decode($auth_explode[1]);
+
+		$consumer_explode_key = explode(':', $consumer_key);
+
+		$consumer_key = wc_api_hash(sanitize_text_field($consumer_explode_key[0]));
+
+		$keys = $wpdb->get_row($wpdb->prepare("
+			SELECT key_id, user_id, permissions, consumer_key, consumer_secret, nonces
+			FROM {$wpdb->prefix}woocommerce_api_keys
+			WHERE consumer_key = '%s'
+		", $consumer_key), ARRAY_A);
+
+		if (empty($keys)) {
+			$error_handler = (object) array(
+				'code' => 'woocommerce_rest_cannot_view',
+				'message' => 'Sorry, you cannot list resources.',
+				'data' =>
+				(object) array(
+					'status' => 401,
+				),
+			);
+			echo json_encode($error_handler);
+		} else {
+			$method = $data->get_method();
+			$json_customer = array();
+
+			if ($method == 'GET') {
+				$get_request = $data->get_query_params();
+
+				$id_apple = $get_request['UserId'];
+
+				$args = array(
+					'meta_query' => array(
+						array(
+							'key' => 'UserId',
+							'value' => $id_apple,
+							'compare' => '='
+						)
+					)
+				);
+
+				$member_arr = get_users($args); //finds all users with this meta_key == 'member_id' and meta_value == $member_id passed in url
+
+				if ($member_arr) {
+					foreach ($member_arr as $user) {
+						$first_name = get_user_meta($user->ID, 'first_name', true);
+						$last_name = get_user_meta($user->ID, 'last_name', true);
+						$json_customer = array(
+							'id' => $user->ID,
+							'email' => $user->user_email,
+							'first_name' => $first_name,
+							'last_name' => $last_name,
+						);
+					}
+				}
+			} else {
+				$get_request = $data->get_body_params();
+
+				$id_apple = $get_request['UserId'];
+
+				$user = get_user_by('email', $get_request['email']);
+				if ($user) {
+					add_user_meta($user->ID, 'UserId', $id_apple);
+					$first_name = get_user_meta($user->ID, 'first_name', true);
+					$last_name = get_user_meta($user->ID, 'last_name', true);
+					$json_customer = array(
+						'id' => $user->ID,
+						'email' => $user->user_email,
+						'first_name' => $first_name,
+						'last_name' => $last_name,
+					);
+				}
+			}
+			echo json_encode($json_customer);
 		}
 	}
 
@@ -221,6 +311,18 @@ class WC_REST_Custom_Controller
 			array(
 				'methods' => 'GET',
 				'callback' => array($this, 'get_gallery_images'),
+				'permission_callback' => function () {
+					return '';
+				}
+			)
+		);
+
+		register_rest_route(
+			$this->namespace,
+			'/customersApple',
+			array(
+				'methods' => array('GET', 'POST'),
+				'callback' => array($this, 'get_customer_details'),
 				'permission_callback' => function () {
 					return '';
 				}

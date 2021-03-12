@@ -395,7 +395,7 @@ add_action('init', 'smartwp_disable_new_user_notifications');
 /* --------------------------------------------------------------
 /* CLASS FOR ADDING A JSON CODE INSIDE WOOCOMMERCE
 -------------------------------------------------------------- */
-require_once('galleries_cpt.php');
+//require_once('galleries_cpt.php');
 
 /* --------------------------------------------------------------
 /* CLASS FOR ADDING A JSON CODE INSIDE WOOCOMMERCE
