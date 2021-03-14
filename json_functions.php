@@ -270,13 +270,14 @@ class WC_REST_Custom_Controller
 					}
 				}
 			} else {
-				$get_request = $data->get_body_params();
+				$get_request = $data->get_body();
+				$request_json = json_decode($get_request);
 
-				$id_apple = $get_request['UserId'];
+				$id_apple = $request_json->userId;
 
-				$user = get_user_by('email', $get_request['email']);
+				$user = get_user_by('email', $request_json->email);
 				if ($user) {
-					add_user_meta($user->ID, 'UserId', $id_apple);
+					update_user_meta($user->ID, 'UserId', $id_apple);
 					$first_name = get_user_meta($user->ID, 'first_name', true);
 					$last_name = get_user_meta($user->ID, 'last_name', true);
 					$json_customer = array(
@@ -285,6 +286,39 @@ class WC_REST_Custom_Controller
 						'first_name' => $first_name,
 						'last_name' => $last_name,
 					);
+				} else {
+					$username = explode('@', $request_json->email);
+					$user_id = wp_insert_user(array(
+						'user_login' => $username[0],
+						'user_pass' => $username[0],
+						'user_email' => $request_json->email,
+						'first_name' => $request_json->first_name,
+						'last_name' => $request_json->last_name,
+						'display_name' => $request_json->first_name . ' ' . $request_json->last_name,
+						'role' => 'customer'
+					));
+					if (is_wp_error($user_id)) {
+						$user = get_user_by('email', $request_json->email);
+						$first_name = get_user_meta($user->ID, 'first_name', true);
+						$last_name = get_user_meta($user->ID, 'last_name', true);
+						$json_customer = array(
+							'id' => $user->ID,
+							'email' => $user->user_email,
+							'first_name' => $first_name,
+							'last_name' => $last_name,
+						);
+					} else {
+						update_user_meta($user_id, 'UserId', $id_apple);
+						$user = get_user_by('id', $user_id);
+						$first_name = get_user_meta($user->ID, 'first_name', true);
+						$last_name = get_user_meta($user->ID, 'last_name', true);
+						$json_customer = array(
+							'id' => $user->ID,
+							'email' => $user->user_email,
+							'first_name' => $first_name,
+							'last_name' => $last_name,
+						);
+					}
 				}
 			}
 			echo json_encode($json_customer);
